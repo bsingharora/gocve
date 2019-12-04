@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"regexp"
 )
 
 type CVEDescriptionData struct {
@@ -52,7 +53,7 @@ type CVECPEMatch struct {
 
 type CVEItemConfiguration struct {
 	CVEDataVersion string      `json:"CVE_data_version"`
-	CVENode        []*CVENodes `json:"nodes,omitempty"`
+	CVENodes       []*CVENodes `json:"nodes,omitempty"`
 }
 
 type CVEBaseMetricV2 struct {
@@ -98,8 +99,15 @@ func main() {
 
 	//fmt.Printf("%v", result.CVEItems)
 	for i, item := range result.CVEItems {
-		for _, desc := range item.CVEInfo.Description.Description {
-			fmt.Printf("%v:%v\n", i, desc.Value)
+
+		for _, node := range item.Configuration.CVENodes {
+			for _, cpes := range node.CPEMatch {
+				cpeLinuxKernel := "linux:linux_kernel"
+				matched, _ := regexp.Match(cpeLinuxKernel, []byte(cpes.CPE23Uri))
+				if matched == true {
+					fmt.Printf("%v: %v\n", i, item.CVEInfo.Description.Description[0].Value)
+				}
+			}
 		}
 	}
 }
