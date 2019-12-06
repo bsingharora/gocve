@@ -17,12 +17,17 @@ type CVEDescription struct {
 	Description []*CVEDescriptionData `json:"description_data"`
 }
 
+type CVEMetaData struct {
+	ID       string `json:"ID"`
+	Assigner string
+}
+
 type CVE struct {
 	Description  CVEDescription `json:"description"`
 	data_type    string
 	data_format  string
 	data_version string
-	meta_data    string
+	MetaData     CVEMetaData `json:"CVE_data_meta"`
 	problem_type string
 	references   string
 }
@@ -84,6 +89,24 @@ type CVEMain struct {
 	CVEItems       []*CVEItem `json:"CVE_Items"`
 }
 
+func cpeMatch(cpes *CVECPEMatch, cpePattern string) bool {
+	matched, _ := regexp.Match(cpePattern, []byte(cpes.CPE23Uri))
+	if matched == true && cpes.Vulnerable == true {
+		return true
+	}
+	return false
+}
+
+func descMatch(description []*CVEDescriptionData, descPattern string) bool {
+	for _, desc := range description {
+		matched, _ := regexp.Match(descPattern, []byte(desc.Value))
+		if matched == true {
+			return true
+		}
+	}
+	return false
+}
+
 func main() {
 	file, err := os.Open("nvdcve-1.1-modified.json")
 	if err != nil {
@@ -98,14 +121,16 @@ func main() {
 	}
 
 	//fmt.Printf("%v", result.CVEItems)
-	for i, item := range result.CVEItems {
-
+	for _, item := range result.CVEItems {
+		visited := false
 		for _, node := range item.Configuration.CVENodes {
 			for _, cpes := range node.CPEMatch {
-				cpeLinuxKernel := "linux:linux_kernel"
-				matched, _ := regexp.Match(cpeLinuxKernel, []byte(cpes.CPE23Uri))
-				if matched == true {
-					fmt.Printf("%v: %v\n", i, item.CVEInfo.Description.Description[0].Value)
+				if cpeMatch(cpes, "linux:linux_kernel") {
+					fmt.Printf("%v: %v\n", item.CVEInfo.MetaData.ID, item.CVEInfo.Description.Description[0].Value)
+					visited = true
+				}
+				if descMatch(item.CVEInfo.Description.Description, "[lL]inux.*[kK]ernel") && visited == false {
+					fmt.Printf("%v: %v\n", item.CVEInfo.MetaData.ID, item.CVEInfo.Description.Description[0].Value)
 				}
 			}
 		}
