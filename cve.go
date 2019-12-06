@@ -1,10 +1,11 @@
 package main
 
 import (
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"log"
-	"os"
+	"net/http"
 	"regexp"
 )
 
@@ -107,17 +108,41 @@ func descMatch(description []*CVEDescriptionData, descPattern string) bool {
 	return false
 }
 
-func main() {
-	file, err := os.Open("nvdcve-1.1-modified.json")
+const cveJSONFeedURL = "https://nvd.nist.gov/feeds/json/cve/1.1/nvdcve-1.1-recent.json.gz"
+
+func getJSONFeed(url string) (resp *http.Response, err error) {
+	resp, err = http.Get(url)
 	if err != nil {
-		log.Fatal("Failed to open JSON file with CVEs")
+		return nil, err
 	}
 
+	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close()
+		return nil, fmt.Errorf("Can't contact the URL for feeds %s", url)
+	}
+	return resp, nil
+}
+
+func main() {
 	var result CVEMain
 
-	if err := json.NewDecoder(file).Decode(&result); err != nil {
+	resp, err := getJSONFeed(cveJSONFeedURL)
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+
+	reader, err := gzip.NewReader(resp.Body)
+	if err != nil {
+		fmt.Printf("%s\n", err)
+		log.Fatal("Failed to parse gzipped JSON file")
+		resp.Body.Close()
+	}
+
+	if err := json.NewDecoder(reader).Decode(&result); err != nil {
 		fmt.Printf("%s\n", err)
 		log.Fatal("Failed to parse JSON file")
+		resp.Body.Close()
 	}
 
 	//fmt.Printf("%v", result.CVEItems)
@@ -135,4 +160,6 @@ func main() {
 			}
 		}
 	}
+
+	resp.Body.Close()
 }
