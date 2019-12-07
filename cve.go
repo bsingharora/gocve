@@ -108,7 +108,9 @@ func descMatch(description []*CVEDescriptionData, descPattern string) bool {
 	return false
 }
 
-const cveJSONFeedURL = "https://nvd.nist.gov/feeds/json/cve/1.1/nvdcve-1.1-recent.json.gz"
+//const cveJSONFeedURL = "https://nvd.nist.gov/feeds/json/cve/1.1/nvdcve-1.1-recent.json.gz"
+
+const cveJSONFeedURL = "https://nvd.nist.gov/feeds/json/cve/1.1/nvdcve-1.1-2019.json.gz"
 
 func getJSONFeed(url string) (resp *http.Response, err error) {
 	resp, err = http.Get(url)
@@ -125,6 +127,8 @@ func getJSONFeed(url string) (resp *http.Response, err error) {
 
 func main() {
 	var result CVEMain
+
+	uniquecves := make(map[string]bool)
 
 	resp, err := getJSONFeed(cveJSONFeedURL)
 	if err != nil {
@@ -147,15 +151,20 @@ func main() {
 
 	//fmt.Printf("%v", result.CVEItems)
 	for _, item := range result.CVEItems {
-		visited := false
+
 		for _, node := range item.Configuration.CVENodes {
 			for _, cpes := range node.CPEMatch {
-				if cpeMatch(cpes, "linux:linux_kernel") {
-					fmt.Printf("%v: %v\n", item.CVEInfo.MetaData.ID, item.CVEInfo.Description.Description[0].Value)
-					visited = true
+				if cpeMatch(cpes, "linux:linux_kernel") &&
+					uniquecves[item.CVEInfo.MetaData.ID] == false {
+					fmt.Printf("%v: %v\n", item.CVEInfo.MetaData.ID,
+						item.CVEInfo.Description.Description[0].Value)
+					uniquecves[item.CVEInfo.MetaData.ID] = true
 				}
-				if descMatch(item.CVEInfo.Description.Description, "[lL]inux.*[kK]ernel") && visited == false {
-					fmt.Printf("%v: %v\n", item.CVEInfo.MetaData.ID, item.CVEInfo.Description.Description[0].Value)
+				if descMatch(item.CVEInfo.Description.Description, "[lL]inux.*[kK]ernel") &&
+					uniquecves[item.CVEInfo.MetaData.ID] == false {
+					fmt.Printf("%v: %v\n", item.CVEInfo.MetaData.ID,
+						item.CVEInfo.Description.Description[0].Value)
+					uniquecves[item.CVEInfo.MetaData.ID] = true
 				}
 			}
 		}
