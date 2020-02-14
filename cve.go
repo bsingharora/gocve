@@ -3,6 +3,7 @@ package main
 import (
 	"compress/gzip"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -110,7 +111,7 @@ func descMatch(description []*CVEDescriptionData, descPattern string) bool {
 
 //const cveJSONFeedURL = "https://nvd.nist.gov/feeds/json/cve/1.1/nvdcve-1.1-recent.json.gz"
 
-const cveJSONFeedURL = "https://nvd.nist.gov/feeds/json/cve/1.1/nvdcve-1.1-2019.json.gz"
+var cveJSONFeedURL = "https://nvd.nist.gov/feeds/json/cve/1.1/nvdcve-1.1-%s.json.gz"
 
 func getJSONFeed(url string) (resp *http.Response, err error) {
 	resp, err = http.Get(url)
@@ -125,8 +126,17 @@ func getJSONFeed(url string) (resp *http.Response, err error) {
 	return resp, nil
 }
 
+var year = flag.String("year", "2020", "The year for which CVE's should be searched, for example 2020")
+var cpe = flag.String("cpe", "linux:linux_kernel", "cpe to match against for example linux:linux_kernel")
+var keyword = flag.String("keyword", "[lL]inux.*[kK]ernel", "Regex of keywords to search, for example, [lL]inux")
+
 func main() {
 	var result CVEMain
+
+	flag.Parse()
+	cveJSONFeedURL = fmt.Sprintf(cveJSONFeedURL, *year)
+
+	fmt.Printf("Fetching feed from %s to match %s\n", cveJSONFeedURL, *cpe)
 
 	uniquecves := make(map[string]bool)
 
@@ -154,13 +164,13 @@ func main() {
 
 		for _, node := range item.Configuration.CVENodes {
 			for _, cpes := range node.CPEMatch {
-				if cpeMatch(cpes, "linux:linux_kernel") &&
+				if cpeMatch(cpes, *cpe) &&
 					uniquecves[item.CVEInfo.MetaData.ID] == false {
 					fmt.Printf("%v: %v\n", item.CVEInfo.MetaData.ID,
 						item.CVEInfo.Description.Description[0].Value)
 					uniquecves[item.CVEInfo.MetaData.ID] = true
 				}
-				if descMatch(item.CVEInfo.Description.Description, "[lL]inux.*[kK]ernel") &&
+				if descMatch(item.CVEInfo.Description.Description, *keyword) &&
 					uniquecves[item.CVEInfo.MetaData.ID] == false {
 					fmt.Printf("%v: %v\n", item.CVEInfo.MetaData.ID,
 						item.CVEInfo.Description.Description[0].Value)
