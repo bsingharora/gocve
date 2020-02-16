@@ -93,7 +93,7 @@ type CVEMain struct {
 
 var year = flag.String("year", "2020", "The year for which CVE's should be searched, for example 2020")
 var cpe = flag.String("cpe", "linux:linux_kernel", "cpe to match against for example linux:linux_kernel")
-var keyword = flag.String("keyword", "[lL]inux.*[kK]ernel", "Regex of keywords to search, for example, [lL]inux")
+var keyword = flag.String("keyword", "[lL]inux.*[kK]ernel", "Regex of keywords to search, for example, [lL]inux or use empty string \"\" to ignore keywords")
 var version = flag.String("version", "", "version string like 4.14")
 
 // This is harder to do, versions can be arbitrary strings
@@ -256,6 +256,10 @@ func main() {
 				fmt.Printf("%v: %v\n", item.CVEInfo.MetaData.ID,
 					item.CVEInfo.Description.Description[0].Value)
 				uniquecves[item.CVEInfo.MetaData.ID] = true
+			}
+
+			if *keyword == "" {
+				break
 			}
 
 			if descMatch(item.CVEInfo.Description.Description, *keyword) &&
