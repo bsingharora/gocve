@@ -63,10 +63,20 @@ type CVEItemConfiguration struct {
 	CVENodes       []*CVENodes `json:"nodes,omitempty"`
 }
 
+type CPECVSSV3 struct {
+	version      string  `json:"version"`
+	VectorString string  `json:"vectorString"`
+	BaseScore    float64 `json:"baseScore"`
+	BaseSeverity string  `json:"baseSeverity"`
+}
+
 type CVEBaseMetricV2 struct {
 }
 
 type CVEBaseMetricV3 struct {
+	CVSSV3             CPECVSSV3 `json:"cvssV3"`
+	ExploitabiltyScore float64   `json:"exploitabilityScore"`
+	ImpactScore        float64   `json:"impactScore"`
 }
 
 type CVEImpact struct {
@@ -93,7 +103,7 @@ type CVEMain struct {
 
 var year = flag.String("year", "2020", "The year for which CVE's should be searched, for example 2020")
 var cpe = flag.String("cpe", "linux:linux_kernel", "cpe to match against for example linux:linux_kernel")
-var keyword = flag.String("keyword", "[lL]inux.*[kK]ernel", "Regex of keywords to search, for example, [lL]inux or use empty string \"\" to ignore keywords")
+var keyword = flag.String("keyword", "", "Regex of keywords to search, for example, [lL]inux or use empty string \"\" to ignore keywords")
 var version = flag.String("version", "", "version string like 4.14")
 
 // This is harder to do, versions can be arbitrary strings
@@ -253,8 +263,9 @@ func main() {
 
 			if cpeMatch(node.CPEMatch, *cpe, node.CVEOperator, node.CVEChildren, node.CVENegates) &&
 				uniquecves[item.CVEInfo.MetaData.ID] == false {
-				fmt.Printf("%v: %v\n", item.CVEInfo.MetaData.ID,
-					item.CVEInfo.Description.Description[0].Value)
+				fmt.Printf("\n%v: %v", item.CVEInfo.MetaData.ID, item.CVEInfo.Description.Description[0].Value)
+				fmt.Printf(" %v %v %v\n", item.Impact.BaseMetricV3.CVSSV3.BaseSeverity,
+					item.Impact.BaseMetricV3.CVSSV3.BaseScore, item.Impact.BaseMetricV3.CVSSV3.VectorString)
 				uniquecves[item.CVEInfo.MetaData.ID] = true
 			}
 
@@ -264,8 +275,9 @@ func main() {
 
 			if descMatch(item.CVEInfo.Description.Description, *keyword) &&
 				uniquecves[item.CVEInfo.MetaData.ID] == false {
-				fmt.Printf("%v: %v\n", item.CVEInfo.MetaData.ID,
-					item.CVEInfo.Description.Description[0].Value)
+				fmt.Printf("\n%v: %v", item.CVEInfo.MetaData.ID, item.CVEInfo.Description.Description[0].Value)
+				fmt.Printf(" %v %v %v\n", item.Impact.BaseMetricV3.CVSSV3.BaseSeverity,
+					item.Impact.BaseMetricV3.CVSSV3.BaseScore, item.Impact.BaseMetricV3.CVSSV3.VectorString)
 				uniquecves[item.CVEInfo.MetaData.ID] = true
 			}
 		}
