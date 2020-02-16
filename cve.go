@@ -145,6 +145,10 @@ func versionMatch(cpe *CVECPEMatch, cpePattern string, version string) bool {
 func cpeMatch(cpes []*CVECPEMatch, cpePattern string, operator string, children []*CVENodes, negates string) bool {
 	var result bool
 
+	if cpePattern == "" {
+		return false
+	}
+
 	if len(children) == 0 {
 		switch operator {
 		case "OR":
