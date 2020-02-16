@@ -48,13 +48,13 @@ type CVECPEName struct {
 }
 
 type CVECPEMatch struct {
-	Vulnerable            bool   `json:"vulnerable"`
-	CPE23Uri              string `json:"cpe23Uri"`
-	CPE22Uri              string `json:"cpe22Uri,omitempty"`
-	VersionStartExcluding string
-	VersionStartIncluding string
-	VersionEndExcluding   string
-	VersionEndIncluding   string
+	Vulnerable            bool          `json:"vulnerable"`
+	CPE23Uri              string        `json:"cpe23Uri"`
+	CPE22Uri              string        `json:"cpe22Uri,omitempty"`
+	VersionStartExcluding string        `json: versionStartExcluding`
+	VersionStartIncluding string        `json: versionStartIncluding`
+	VersionEndExcluding   string        `json: versionEndExcluding`
+	VersionEndIncluding   string        `json: versionEndIncluding`
 	CVECPEName            []*CVECPEName `json:"cpe_name,omitempty"`
 }
 
@@ -91,6 +91,47 @@ type CVEMain struct {
 	CVEItems       []*CVEItem `json:"CVE_Items"`
 }
 
+var year = flag.String("year", "2020", "The year for which CVE's should be searched, for example 2020")
+var cpe = flag.String("cpe", "linux:linux_kernel", "cpe to match against for example linux:linux_kernel")
+var keyword = flag.String("keyword", "[lL]inux.*[kK]ernel", "Regex of keywords to search, for example, [lL]inux")
+var version = flag.String("version", "", "version string like 4.14")
+
+// This is harder to do, versions can be arbitrary strings
+// we assume there is a sort order (comparable) defined
+func versionMatch(cpe *CVECPEMatch, cpePattern string, version string) bool {
+
+	//fmt.Printf("Matching pattern %v against %v\n", cpePattern, cpe.CPE23Uri)
+	matched, _ := regexp.Match(cpePattern, []byte(cpe.CPE23Uri))
+
+	if version == "" {
+		//fmt.Printf("Version not specified, returing matched %v\n", matched)
+		return matched
+	}
+
+	if matched == false {
+		return false
+	}
+
+	if cpe.VersionStartIncluding != "" && version < cpe.VersionStartIncluding {
+		//fmt.Printf("Failed match, version %v, Including %v\n", version, cpe.VersionStartIncluding)
+		return false
+	}
+	if cpe.VersionStartExcluding != "" && version <= cpe.VersionStartExcluding {
+		//fmt.Printf("Failed match, version %v, e Including %v\n", version, cpe.VersionEndExcluding)
+		return false
+	}
+	if cpe.VersionEndIncluding != "" && version > cpe.VersionEndIncluding {
+		//fmt.Printf("Failed match, version %v, excluding %v\n", version, cpe.VersionEndIncluding)
+		return false
+	}
+	if cpe.VersionEndExcluding != "" && version >= cpe.VersionEndExcluding {
+		//fmt.Printf("Failed match, version %v, e excluding %v\n", version, cpe.VersionEndExcluding)
+		return false
+	}
+
+	return matched
+}
+
 func cpeMatch(cpes []*CVECPEMatch, cpePattern string, operator string, children []*CVENodes, negates string) bool {
 	var result bool
 
@@ -98,7 +139,7 @@ func cpeMatch(cpes []*CVECPEMatch, cpePattern string, operator string, children 
 		switch operator {
 		case "OR":
 			for _, cpe := range cpes {
-				matched, _ := regexp.Match(cpePattern, []byte(cpe.CPE23Uri))
+				matched := versionMatch(cpe, cpePattern, *version)
 				//fmt.Printf("c:OR: Matching cpe %v, negates %v\n", cpe, negates)
 				if matched == true && cpe.Vulnerable == true && (negates == "" || negates == "false") {
 					//fmt.Printf("c:OR: true\n")
@@ -109,7 +150,7 @@ func cpeMatch(cpes []*CVECPEMatch, cpePattern string, operator string, children 
 			return false
 		case "AND":
 			for _, cpe := range cpes {
-				matched, _ := regexp.Match(cpePattern, []byte(cpe.CPE23Uri))
+				matched := versionMatch(cpe, cpePattern, *version)
 				//fmt.Printf("c:AND: Matching cpe %v, negates %v\n", cpe, negates)
 				if matched == false || cpe.Vulnerable == false || (negates == "" && negates == "false") {
 					//fmt.Printf("c:AND: false\n")
@@ -161,6 +202,8 @@ func descMatch(description []*CVEDescriptionData, descPattern string) bool {
 
 var cveJSONFeedURL = "https://nvd.nist.gov/feeds/json/cve/1.1/nvdcve-1.1-%s.json.gz"
 
+//var cveJSONFeedURL = "file://tmp/nvdcve-1.1-%s.json.gz"
+
 func getJSONFeed(url string) (resp *http.Response, err error) {
 	resp, err = http.Get(url)
 	if err != nil {
@@ -173,10 +216,6 @@ func getJSONFeed(url string) (resp *http.Response, err error) {
 	}
 	return resp, nil
 }
-
-var year = flag.String("year", "2020", "The year for which CVE's should be searched, for example 2020")
-var cpe = flag.String("cpe", "linux:linux_kernel", "cpe to match against for example linux:linux_kernel")
-var keyword = flag.String("keyword", "[lL]inux.*[kK]ernel", "Regex of keywords to search, for example, [lL]inux")
 
 func main() {
 	var result CVEMain
