@@ -91,11 +91,59 @@ type CVEMain struct {
 	CVEItems       []*CVEItem `json:"CVE_Items"`
 }
 
-func cpeMatch(cpes *CVECPEMatch, cpePattern string) bool {
-	matched, _ := regexp.Match(cpePattern, []byte(cpes.CPE23Uri))
-	if matched == true && cpes.Vulnerable == true {
+func cpeMatch(cpes []*CVECPEMatch, cpePattern string, operator string, children []*CVENodes, negates string) bool {
+	var result bool
+
+	if len(children) == 0 {
+		switch operator {
+		case "OR":
+			for _, cpe := range cpes {
+				matched, _ := regexp.Match(cpePattern, []byte(cpe.CPE23Uri))
+				//fmt.Printf("c:OR: Matching cpe %v, negates %v\n", cpe, negates)
+				if matched == true && cpe.Vulnerable == true && (negates == "" || negates == "false") {
+					//fmt.Printf("c:OR: true\n")
+					return true
+				}
+			}
+			//fmt.Printf("c:OR: false\n")
+			return false
+		case "AND":
+			for _, cpe := range cpes {
+				matched, _ := regexp.Match(cpePattern, []byte(cpe.CPE23Uri))
+				//fmt.Printf("c:AND: Matching cpe %v, negates %v\n", cpe, negates)
+				if matched == false || cpe.Vulnerable == false || (negates == "" && negates == "false") {
+					//fmt.Printf("c:AND: false\n")
+					return false
+				}
+			}
+			//fmt.Printf("c:AND: true\n")
+			return true
+		}
+	}
+
+	switch operator {
+	case "OR":
+		for _, childcpe := range children {
+			result = cpeMatch(childcpe.CPEMatch, cpePattern, childcpe.CVEOperator, childcpe.CVEChildren, childcpe.CVENegates)
+			if result == true {
+				//fmt.Printf("OR: true\n")
+				return true
+			}
+		}
+		//fmt.Printf("OR: false\n")
+		return false
+	case "AND":
+		for _, childcpe := range children {
+			result = cpeMatch(childcpe.CPEMatch, cpePattern, childcpe.CVEOperator, childcpe.CVEChildren, childcpe.CVENegates)
+			if result == false {
+				//fmt.Printf("AND: false\n")
+				return false
+			}
+		}
+		//fmt.Printf("AND: true\n")
 		return true
 	}
+
 	return false
 }
 
@@ -163,19 +211,19 @@ func main() {
 	for _, item := range result.CVEItems {
 
 		for _, node := range item.Configuration.CVENodes {
-			for _, cpes := range node.CPEMatch {
-				if cpeMatch(cpes, *cpe) &&
-					uniquecves[item.CVEInfo.MetaData.ID] == false {
-					fmt.Printf("%v: %v\n", item.CVEInfo.MetaData.ID,
-						item.CVEInfo.Description.Description[0].Value)
-					uniquecves[item.CVEInfo.MetaData.ID] = true
-				}
-				if descMatch(item.CVEInfo.Description.Description, *keyword) &&
-					uniquecves[item.CVEInfo.MetaData.ID] == false {
-					fmt.Printf("%v: %v\n", item.CVEInfo.MetaData.ID,
-						item.CVEInfo.Description.Description[0].Value)
-					uniquecves[item.CVEInfo.MetaData.ID] = true
-				}
+
+			if cpeMatch(node.CPEMatch, *cpe, node.CVEOperator, node.CVEChildren, node.CVENegates) &&
+				uniquecves[item.CVEInfo.MetaData.ID] == false {
+				fmt.Printf("%v: %v\n", item.CVEInfo.MetaData.ID,
+					item.CVEInfo.Description.Description[0].Value)
+				uniquecves[item.CVEInfo.MetaData.ID] = true
+			}
+
+			if descMatch(item.CVEInfo.Description.Description, *keyword) &&
+				uniquecves[item.CVEInfo.MetaData.ID] == false {
+				fmt.Printf("%v: %v\n", item.CVEInfo.MetaData.ID,
+					item.CVEInfo.Description.Description[0].Value)
+				uniquecves[item.CVEInfo.MetaData.ID] = true
 			}
 		}
 	}
