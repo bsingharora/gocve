@@ -8,7 +8,9 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"regexp"
+	"strings"
 )
 
 type CVEDescriptionData struct {
@@ -213,40 +215,47 @@ func descMatch(description []*CVEDescriptionData, descPattern string) bool {
 	return false
 }
 
-//const cveJSONFeedURL = "https://nvd.nist.gov/feeds/json/cve/1.1/nvdcve-1.1-recent.json.gz"
-
+// nvdcve-1.1-recent is a valid feed as well :)
 var cveJSONFeedURL = "https://nvd.nist.gov/feeds/json/cve/1.1/nvdcve-1.1-%s.json.gz"
 
-//var cveJSONFeedURL = "file://tmp/nvdcve-1.1-%s.json.gz"
+//var cveJSONFeedURL = "file:///tmp/nvdcve-1.1-%s.json.gz"
 
 func getJSONFeed(url string) (resp io.ReadCloser, err error) {
 
 	var webresp *http.Response
 
-	webresp, err = http.Get(url)
-	if err != nil {
-		return nil, err
+	if strings.HasPrefix(url, "file:///") {
+		url = strings.TrimLeft(url, "file:")
+		r, err := os.Open(url)
+		if err != nil {
+			log.Fatal("Could not open ", url)
+		}
+		resp = r
+	} else {
+		webresp, err = http.Get(url)
+		if err != nil {
+			return nil, err
+		}
+
+		if webresp.StatusCode != http.StatusOK {
+			resp.Close()
+			return nil, fmt.Errorf("Can't contact the URL for feeds %s", url)
+		}
+
+		resp = webresp.Body
 	}
 
-	resp = webresp.Body
-
-	if webresp.StatusCode != http.StatusOK {
-		resp.Close()
-		return nil, fmt.Errorf("Can't contact the URL for feeds %s", url)
-	}
 	return resp, nil
 }
 
 func main() {
 	var result CVEMain
 
-	flag.Parse()
-	cveJSONFeedURL = fmt.Sprintf(cveJSONFeedURL, *year)
-
-	fmt.Printf("Fetching feed from %s to match %s\n", cveJSONFeedURL, *cpe)
-
 	uniquecves := make(map[string]bool)
+	flag.Parse()
 
+	cveJSONFeedURL = fmt.Sprintf(cveJSONFeedURL, *year)
+	fmt.Printf("Fetching feed from %s to match %s\n", cveJSONFeedURL, *cpe)
 	resp, err := getJSONFeed(cveJSONFeedURL)
 	if err != nil {
 		log.Fatal(err)
