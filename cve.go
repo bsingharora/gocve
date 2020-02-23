@@ -104,9 +104,16 @@ type CVEMain struct {
 	CVEItems       []*CVEItem `json:"CVE_Items"`
 }
 
-var year = flag.String("year", "2020", "The year for which CVE's should be searched, for example 2020")
-var cpe = flag.String("cpe", "linux:linux_kernel", "cpe to match against for example linux:linux_kernel")
-var keyword = flag.String("keyword", "", "Regex of keywords to search, for example, [lL]inux or use empty string \"\" to ignore keywords")
+var year = flag.String("year", "2020",
+	"The year for which CVE's should be searched, for example 2020")
+
+var cpe = flag.String("cpe", "linux:linux_kernel",
+	"cpe to match against for example linux:linux_kernel")
+
+var keyword = flag.String("keyword", "",
+	"Regex of keywords to search, for example, [lL]inux or use empty "+
+		"string \"\" to ignore keywords")
+
 var version = flag.String("version", "", "version string like 4.14")
 
 // This is harder to do, versions can be arbitrary strings
@@ -145,7 +152,8 @@ func versionMatch(cpe *CVECPEMatch, cpePattern string, version string) bool {
 	return matched
 }
 
-func cpeMatch(cpes []*CVECPEMatch, cpePattern string, operator string, children []*CVENodes, negates string) bool {
+func cpeMatch(cpes []*CVECPEMatch, cpePattern string, operator string,
+	children []*CVENodes, negates string) bool {
 	var result bool
 
 	if cpePattern == "" {
@@ -158,7 +166,8 @@ func cpeMatch(cpes []*CVECPEMatch, cpePattern string, operator string, children 
 			for _, cpe := range cpes {
 				matched := versionMatch(cpe, cpePattern, *version)
 				//fmt.Printf("c:OR: Matching cpe %v, negates %v\n", cpe, negates)
-				if matched == true && cpe.Vulnerable == true && (negates == "" || negates == "false") {
+				if matched == true && cpe.Vulnerable == true &&
+					(negates == "" || negates == "false") {
 					//fmt.Printf("c:OR: true\n")
 					return true
 				}
@@ -169,7 +178,8 @@ func cpeMatch(cpes []*CVECPEMatch, cpePattern string, operator string, children 
 			for _, cpe := range cpes {
 				matched := versionMatch(cpe, cpePattern, *version)
 				//fmt.Printf("c:AND: Matching cpe %v, negates %v\n", cpe, negates)
-				if matched == false || cpe.Vulnerable == false || (negates == "" && negates == "false") {
+				if matched == false || cpe.Vulnerable == false ||
+					(negates == "" && negates == "false") {
 					//fmt.Printf("c:AND: false\n")
 					return false
 				}
@@ -182,7 +192,8 @@ func cpeMatch(cpes []*CVECPEMatch, cpePattern string, operator string, children 
 	switch operator {
 	case "OR":
 		for _, childcpe := range children {
-			result = cpeMatch(childcpe.CPEMatch, cpePattern, childcpe.CVEOperator, childcpe.CVEChildren, childcpe.CVENegates)
+			result = cpeMatch(childcpe.CPEMatch, cpePattern, childcpe.CVEOperator,
+				childcpe.CVEChildren, childcpe.CVENegates)
 			if result == true {
 				//fmt.Printf("OR: true\n")
 				return true
@@ -192,7 +203,8 @@ func cpeMatch(cpes []*CVECPEMatch, cpePattern string, operator string, children 
 		return false
 	case "AND":
 		for _, childcpe := range children {
-			result = cpeMatch(childcpe.CPEMatch, cpePattern, childcpe.CVEOperator, childcpe.CVEChildren, childcpe.CVENegates)
+			result = cpeMatch(childcpe.CPEMatch, cpePattern, childcpe.CVEOperator,
+				childcpe.CVEChildren, childcpe.CVENegates)
 			if result == false {
 				//fmt.Printf("AND: false\n")
 				return false
@@ -280,11 +292,17 @@ func main() {
 
 		for _, node := range item.Configuration.CVENodes {
 
-			if cpeMatch(node.CPEMatch, *cpe, node.CVEOperator, node.CVEChildren, node.CVENegates) &&
+			if cpeMatch(node.CPEMatch, *cpe, node.CVEOperator,
+				node.CVEChildren, node.CVENegates) &&
 				uniquecves[item.CVEInfo.MetaData.ID] == false {
-				fmt.Printf("\n%v: %v", item.CVEInfo.MetaData.ID, item.CVEInfo.Description.Description[0].Value)
+
+				fmt.Printf("\n%v: %v", item.CVEInfo.MetaData.ID,
+					item.CVEInfo.Description.Description[0].Value)
+
 				fmt.Printf(" %v %v %v\n", item.Impact.BaseMetricV3.CVSSV3.BaseSeverity,
-					item.Impact.BaseMetricV3.CVSSV3.BaseScore, item.Impact.BaseMetricV3.CVSSV3.VectorString)
+					item.Impact.BaseMetricV3.CVSSV3.BaseScore,
+					item.Impact.BaseMetricV3.CVSSV3.VectorString)
+
 				uniquecves[item.CVEInfo.MetaData.ID] = true
 			}
 
@@ -294,9 +312,14 @@ func main() {
 
 			if descMatch(item.CVEInfo.Description.Description, *keyword) &&
 				uniquecves[item.CVEInfo.MetaData.ID] == false {
-				fmt.Printf("\n%v: %v", item.CVEInfo.MetaData.ID, item.CVEInfo.Description.Description[0].Value)
+
+				fmt.Printf("\n%v: %v", item.CVEInfo.MetaData.ID,
+					item.CVEInfo.Description.Description[0].Value)
+
 				fmt.Printf(" %v %v %v\n", item.Impact.BaseMetricV3.CVSSV3.BaseSeverity,
-					item.Impact.BaseMetricV3.CVSSV3.BaseScore, item.Impact.BaseMetricV3.CVSSV3.VectorString)
+					item.Impact.BaseMetricV3.CVSSV3.BaseScore,
+					item.Impact.BaseMetricV3.CVSSV3.VectorString)
+
 				uniquecves[item.CVEInfo.MetaData.ID] = true
 			}
 		}
