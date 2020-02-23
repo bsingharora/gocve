@@ -104,6 +104,14 @@ type CVEMain struct {
 	CVEItems       []*CVEItem `json:"CVE_Items"`
 }
 
+type CVEOutput struct {
+	ID           string  `json:"CVEID"`
+	Description  string  `json:"CVEDescription"`
+	Severity     string  `json:"CVESeverity"`
+	Score        float64 `json:"CVEScore"`
+	VectorString string  `json:"CVEVector"`
+}
+
 var year = flag.String("year", "2020",
 	"The year for which CVE's should be searched, for example 2020")
 
@@ -115,6 +123,8 @@ var keyword = flag.String("keyword", "",
 		"string \"\" to ignore keywords")
 
 var version = flag.String("version", "", "version string like 4.14")
+
+var jsonOut = flag.Bool("json", false, "Out in JSON format")
 
 // This is harder to do, versions can be arbitrary strings
 // we assume there is a sort order (comparable) defined
@@ -260,6 +270,28 @@ func getJSONFeed(url string) (resp io.ReadCloser, err error) {
 	return resp, nil
 }
 
+func outputItems(item *CVEItem) {
+	if *jsonOut == false {
+		fmt.Printf("\n%v: %v", item.CVEInfo.MetaData.ID,
+			item.CVEInfo.Description.Description[0].Value)
+
+		fmt.Printf(" %v %v %v\n", item.Impact.BaseMetricV3.CVSSV3.BaseSeverity,
+			item.Impact.BaseMetricV3.CVSSV3.BaseScore,
+			item.Impact.BaseMetricV3.CVSSV3.VectorString)
+	}
+	output := &CVEOutput{
+		ID:           item.CVEInfo.MetaData.ID,
+		Description:  item.CVEInfo.Description.Description[0].Value,
+		Severity:     item.Impact.BaseMetricV3.CVSSV3.BaseSeverity,
+		Score:        item.Impact.BaseMetricV3.CVSSV3.BaseScore,
+		VectorString: item.Impact.BaseMetricV3.CVSSV3.VectorString,
+	}
+
+	cveItemJSONOutput, _ := json.Marshal(output)
+	fmt.Println(string(cveItemJSONOutput))
+
+}
+
 func main() {
 	var result CVEMain
 
@@ -295,14 +327,7 @@ func main() {
 			if cpeMatch(node.CPEMatch, *cpe, node.CVEOperator,
 				node.CVEChildren, node.CVENegates) &&
 				uniquecves[item.CVEInfo.MetaData.ID] == false {
-
-				fmt.Printf("\n%v: %v", item.CVEInfo.MetaData.ID,
-					item.CVEInfo.Description.Description[0].Value)
-
-				fmt.Printf(" %v %v %v\n", item.Impact.BaseMetricV3.CVSSV3.BaseSeverity,
-					item.Impact.BaseMetricV3.CVSSV3.BaseScore,
-					item.Impact.BaseMetricV3.CVSSV3.VectorString)
-
+				outputItems(item)
 				uniquecves[item.CVEInfo.MetaData.ID] = true
 			}
 
@@ -312,14 +337,7 @@ func main() {
 
 			if descMatch(item.CVEInfo.Description.Description, *keyword) &&
 				uniquecves[item.CVEInfo.MetaData.ID] == false {
-
-				fmt.Printf("\n%v: %v", item.CVEInfo.MetaData.ID,
-					item.CVEInfo.Description.Description[0].Value)
-
-				fmt.Printf(" %v %v %v\n", item.Impact.BaseMetricV3.CVSSV3.BaseSeverity,
-					item.Impact.BaseMetricV3.CVSSV3.BaseScore,
-					item.Impact.BaseMetricV3.CVSSV3.VectorString)
-
+				outputItems(item)
 				uniquecves[item.CVEInfo.MetaData.ID] = true
 			}
 		}
