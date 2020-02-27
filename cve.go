@@ -278,7 +278,9 @@ func outputItems(item *CVEItem) {
 		fmt.Printf(" %v %v %v\n", item.Impact.BaseMetricV3.CVSSV3.BaseSeverity,
 			item.Impact.BaseMetricV3.CVSSV3.BaseScore,
 			item.Impact.BaseMetricV3.CVSSV3.VectorString)
+                return
 	}
+
 	output := &CVEOutput{
 		ID:           item.CVEInfo.MetaData.ID,
 		Description:  item.CVEInfo.Description.Description[0].Value,
