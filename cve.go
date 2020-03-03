@@ -130,8 +130,8 @@ var jsonOut = flag.Bool("json", false, "Out in JSON format")
 // we assume there is a sort order (comparable) defined
 func versionMatch(cpe *CVECPEMatch, cpePattern string, version string) bool {
 
-	//fmt.Printf("Matching pattern %v against %v\n", cpePattern, cpe.CPE23Uri)
 	matched, _ := regexp.Match(cpePattern, []byte(cpe.CPE23Uri))
+	// fmt.Printf("Matching pattern %v against %v->%v\n", cpePattern, cpe.CPE23Uri, matched)
 
 	if version == "" {
 		//fmt.Printf("Version not specified, returing matched %v\n", matched)
@@ -170,31 +170,34 @@ func cpeMatch(cpes []*CVECPEMatch, cpePattern string, operator string,
 		return false
 	}
 
+	// fmt.Printf("%v:%v\n", cpes, children)
+
 	if len(children) == 0 {
 		switch operator {
 		case "OR":
 			for _, cpe := range cpes {
 				matched := versionMatch(cpe, cpePattern, *version)
-				//fmt.Printf("c:OR: Matching cpe %v, negates %v\n", cpe, negates)
-				if matched == true && cpe.Vulnerable == true &&
-					(negates == "" || negates == "false") {
-					//fmt.Printf("c:OR: true\n")
+				// fmt.Printf("c:OR: Matching cpe %v, negates %v\n", cpe, negates)
+				if (matched == false && cpe.Vulnerable == false) &&
+					(negates == "" || negates == "false") ||
+					(matched == true && cpe.Vulnerable == true) {
+					// fmt.Printf("c:OR: true\n")
 					return true
 				}
 			}
-			//fmt.Printf("c:OR: false\n")
+			// fmt.Printf("c:OR: false\n")
 			return false
 		case "AND":
 			for _, cpe := range cpes {
 				matched := versionMatch(cpe, cpePattern, *version)
 				//fmt.Printf("c:AND: Matching cpe %v, negates %v\n", cpe, negates)
 				if matched == false || cpe.Vulnerable == false ||
-					(negates == "" && negates == "false") {
-					//fmt.Printf("c:AND: false\n")
+					(matched == true && negates == "true") {
+					// fmt.Printf("c:AND: false\n")
 					return false
 				}
 			}
-			//fmt.Printf("c:AND: true\n")
+			// fmt.Printf("c:AND: true\n")
 			return true
 		}
 	}
@@ -205,22 +208,23 @@ func cpeMatch(cpes []*CVECPEMatch, cpePattern string, operator string,
 			result = cpeMatch(childcpe.CPEMatch, cpePattern, childcpe.CVEOperator,
 				childcpe.CVEChildren, childcpe.CVENegates)
 			if result == true {
-				//fmt.Printf("OR: true\n")
+				// fmt.Printf("OR: true\n")
 				return true
 			}
 		}
-		//fmt.Printf("OR: false\n")
+		// fmt.Printf("OR: false\n")
 		return false
 	case "AND":
 		for _, childcpe := range children {
 			result = cpeMatch(childcpe.CPEMatch, cpePattern, childcpe.CVEOperator,
 				childcpe.CVEChildren, childcpe.CVENegates)
 			if result == false {
-				//fmt.Printf("AND: false\n")
+				// fmt.Printf("AND: false\n")
 				return false
 			}
 		}
-		//fmt.Printf("AND: true\n")
+
+		// fmt.Printf("AND: true\n")
 		return true
 	}
 
@@ -278,7 +282,7 @@ func outputItems(item *CVEItem) {
 		fmt.Printf(" %v %v %v\n", item.Impact.BaseMetricV3.CVSSV3.BaseSeverity,
 			item.Impact.BaseMetricV3.CVSSV3.BaseScore,
 			item.Impact.BaseMetricV3.CVSSV3.VectorString)
-                return
+		return
 	}
 
 	output := &CVEOutput{
@@ -323,7 +327,6 @@ func main() {
 
 	//fmt.Printf("%v", result.CVEItems)
 	for _, item := range result.CVEItems {
-
 		for _, node := range item.Configuration.CVENodes {
 
 			if cpeMatch(node.CPEMatch, *cpe, node.CVEOperator,
@@ -332,16 +335,18 @@ func main() {
 				outputItems(item)
 				uniquecves[item.CVEInfo.MetaData.ID] = true
 			}
+		}
+	}
 
-			if *keyword == "" {
-				break
-			}
+	if *keyword == "" {
+		return
+	}
 
-			if descMatch(item.CVEInfo.Description.Description, *keyword) &&
-				uniquecves[item.CVEInfo.MetaData.ID] == false {
-				outputItems(item)
-				uniquecves[item.CVEInfo.MetaData.ID] = true
-			}
+	for _, item := range result.CVEItems {
+		if descMatch(item.CVEInfo.Description.Description, *keyword) &&
+			uniquecves[item.CVEInfo.MetaData.ID] == false {
+			outputItems(item)
+			uniquecves[item.CVEInfo.MetaData.ID] = true
 		}
 	}
 
