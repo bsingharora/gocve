@@ -276,8 +276,8 @@ func getJSONFeed(url string) (resp io.ReadCloser, err error) {
 	return resp, nil
 }
 
-func outputItems(item *CVEItem) {
-	if *jsonOut == false {
+func (item *CVEItem) outputItems(text bool) {
+	if text == true {
 		fmt.Printf("\n%v: %v", item.CVEInfo.MetaData.ID,
 			item.CVEInfo.Description.Description[0].Value)
 
@@ -334,7 +334,7 @@ func main() {
 			if cpeMatch(node.CPEMatch, *cpe, node.CVEOperator,
 				node.CVEChildren, node.CVENegates) &&
 				uniquecves[item.CVEInfo.MetaData.ID] == false {
-				outputItems(item)
+				item.outputItems(*jsonOut == false)
 				uniquecves[item.CVEInfo.MetaData.ID] = true
 			}
 		}
@@ -347,7 +347,7 @@ func main() {
 	for _, item := range result.CVEItems {
 		if descMatch(item.CVEInfo.Description.Description, *keyword) &&
 			uniquecves[item.CVEInfo.MetaData.ID] == false {
-			outputItems(item)
+			item.outputItems(*jsonOut == false)
 			uniquecves[item.CVEInfo.MetaData.ID] = true
 		}
 	}
