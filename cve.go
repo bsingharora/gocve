@@ -1,3 +1,5 @@
+// Copyright (C) Balbir Singh, 2020
+
 package main
 
 import (
