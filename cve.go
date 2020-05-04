@@ -12,6 +12,8 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -114,6 +116,33 @@ type CVEOutput struct {
 	VectorString string  `json:"CVEVector"`
 }
 
+type byCVENumber []*CVEItem
+
+func (cve byCVENumber) Len() int      { return len(cve) }
+func (cve byCVENumber) Swap(i, j int) { cve[i], cve[j] = cve[j], cve[i] }
+func (cve byCVENumber) Less(i, j int) bool {
+	//re := regexp.MustCompile("CVE[-][\d{4}][-][\d{4}]")
+	re := regexp.MustCompile("\\d+")
+	m1 := re.FindAllString(cve[i].CVEInfo.MetaData.ID, -1)
+	m2 := re.FindAllString(cve[j].CVEInfo.MetaData.ID, -1)
+	// Assuming standard text of the form CVE-Year-ID
+	id1, _ := strconv.Atoi(m1[1])
+	id2, _ := strconv.Atoi(m2[1])
+	y1, _ := strconv.Atoi(m1[0])
+	y2, _ := strconv.Atoi(m2[0])
+	if y2 > y1 {
+		return true
+	}
+	if y1 > y2 {
+		return false
+	}
+	if id1 < id2 {
+		return true
+	}
+	return false
+	//return cve[i].CVEInfo.MetaData.ID < cve[j].CVEInfo.MetaData.ID
+}
+
 var year = flag.String("year", "2020",
 	"The year for which CVE's should be searched, for example 2020")
 
@@ -127,6 +156,8 @@ var keyword = flag.String("keyword", "",
 var version = flag.String("version", "", "version string like 4.14")
 
 var jsonOut = flag.Bool("json", false, "Out in JSON format")
+
+var feedURL = flag.String("file", "", "Name of the file containing the feed")
 
 // This is harder to do, versions can be arbitrary strings
 // we assume there is a sort order (comparable) defined
@@ -306,8 +337,14 @@ func main() {
 	uniquecves := make(map[string]bool)
 	flag.Parse()
 
-	cveJSONFeedURL = fmt.Sprintf(cveJSONFeedURL, *year)
+	if *feedURL == "" {
+		cveJSONFeedURL = fmt.Sprintf(cveJSONFeedURL, *year)
+	} else {
+		cveJSONFeedURL = *feedURL
+	}
+
 	fmt.Printf("Fetching feed from %s to match %s\n", cveJSONFeedURL, *cpe)
+
 	resp, err := getJSONFeed(cveJSONFeedURL)
 	if err != nil {
 		log.Fatal(err)
@@ -326,6 +363,8 @@ func main() {
 		log.Fatal("Failed to parse JSON file")
 		resp.Close()
 	}
+
+	sort.Sort(byCVENumber(result.CVEItems))
 
 	//fmt.Printf("%v", result.CVEItems)
 	for _, item := range result.CVEItems {
