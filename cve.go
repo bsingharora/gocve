@@ -143,10 +143,10 @@ func (cve byCVENumber) Less(i, j int) bool {
 	//return cve[i].CVEInfo.MetaData.ID < cve[j].CVEInfo.MetaData.ID
 }
 
-var year = flag.String("year", "2020",
-	"The year for which CVE's should be searched, for example 2020")
+var year = flag.String("year", "2021",
+	"The year for which CVE's should be searched, for example 2021")
 
-var cpe = flag.String("cpe", "linux:linux_kernel",
+var cpe = flag.String("cpe", "",
 	"cpe to match against for example linux:linux_kernel")
 
 var keyword = flag.String("keyword", "",
@@ -157,7 +157,7 @@ var version = flag.String("version", "", "version string like 4.14")
 
 var jsonOut = flag.Bool("json", false, "Out in JSON format")
 
-var feedURL = flag.String("file", "", "Name of the file containing the feed")
+var feedURL = flag.String("file", "", "Name of the file containing the feed with a file:// schema")
 
 // This is harder to do, versions can be arbitrary strings
 // we assume there is a sort order (comparable) defined
